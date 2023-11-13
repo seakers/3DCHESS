@@ -1,48 +1,60 @@
 from abc import ABC
-from enum import Enum
-from typing import Union
 
-from dmas.agents import AgentAction
-
-class ComponentAction(AgentAction):
+class ComponentAction(ABC):
     """ 
     # Component Action
     
     Describes an action to be performed on or by an engineering module component
     """
-    def __init__(self, 
-                action_type: str, 
-                target : str, 
-                t_start: Union[float, int], 
-                status: str = 'PENDING', 
-                id: str = None, 
-                **_) -> None:
-        super().__init__(action_type, t_start, status=status, id=id)
-        self.target = target
+    def __init__(   self, 
+                    t : float = 0.0,
+                    ) -> None:
+        self.t = t
 
+        super.__init__()
 
-class SubsystemAction(AgentAction):
+    pass
+
+class SubsystemAction(ABC):
     """ 
     # Subsystem Action
     
     Describes an action to be performed on or by an engineering module subsystem
-
-    ### Attributes:
-        - action_type (`str`): type of action to be performed
-        - t_start (`float`): start time of this action in [s] from the beginning of the simulation
-        - t_end (`float`): end time of this this action in [s] from the beginning of the simulation
-        - status (`str`): completion status of the action
-        - id (`str`) : identifying number for this action in uuid format
     """
-    def __init__(self, 
-                action_type: str, 
-                target : str, 
-                t_start: Union[float, int], 
-                status: str = 'PENDING', 
-                id: str = None, 
-                **_) -> None:
-        super().__init__(action_type, t_start, status=status, id=id)
-        self.target = target
+    def __init__(   self, 
+                    t : float = 0.0,
+                    ) -> None:
+        self.t = t
 
-class ComponentActuateAction(ComponentAction):
+        super.__init__()
     pass
+
+class SubsystemProvidePower(SubsystemAction):
+    """ 
+    # Subsystem Provide Power
+    
+    Describes an action to be performed on or by an engineering module subsystem
+    """
+    def __init__(   self,
+                    receiver : str,
+                    t : float = 0.0
+                    ) -> None:
+
+        super.__init__(self, t)
+
+        self.receiver = receiver
+        self.t = t
+
+class ComponentProvidePower(ComponentAction):
+    """ 
+    # ComponentProvide Power
+    
+    Describes an action to be performed on or by an engineering module subsystem
+    """
+    def __init__(   self,
+                    receiver_pwr : float,
+                    t : float = 0.0
+                    ) -> None:
+        super.__init__(self, t)
+
+        self.receiver_pwr = receiver_pwr

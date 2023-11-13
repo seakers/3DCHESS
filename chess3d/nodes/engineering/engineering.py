@@ -4,6 +4,7 @@ import logging
 import uuid
 import numpy as np
 from nodes.engineering.actions import *
+from nodes.actions import AgentAction
 from utils import ModuleTypes
 
 from nodes.engineering.subsystems import Subsystem
