@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from ctypes import Union
+from typing import Union
 import logging
 import uuid
 import numpy as np
@@ -7,7 +7,7 @@ from nodes.engineering.actions import *
 from nodes.actions import AgentAction
 from utils import ModuleTypes
 
-from nodes.engineering.subsystems import Subsystem
+from nodes.engineering.subsystems import AbstractSubsystem
        
 class EngineeringModule(object):
     """
@@ -32,8 +32,8 @@ class EngineeringModule(object):
         if not isinstance(subsystems, list):
             raise ValueError(f'`subsystems` must be of type `list`. is of type {type(subsystems)}.')
         for component in subsystems:
-            if not isinstance(component, Subsystem):
-                raise ValueError(f'elements of list `subsystems` must be of type `Subsystem`. contains element of type {type(component)}.')
+            if not isinstance(component, AbstractSubsystem):
+                raise ValueError(f'elements of list `subsystems` must be of type `AbstractSubsystem`. contains element of type {type(component)}.')
             
         self.name = ModuleTypes.ENGINEERING.value
         self.subsystems = subsystems

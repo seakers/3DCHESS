@@ -147,6 +147,19 @@
                 "PYTHONPATH": "${workspaceRoot}"
             },
             "args": "scenario2_single_sat_acbba"
+        },
+        {
+            "name": "ENGINEERING MODULE - TESTER",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceRoot}/chess3d/main.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "cwd": "${workspaceRoot}/chess3d",
+            "env": {
+                "PYTHONPATH": "${workspaceRoot}"
+            },
+            "args": "engineering_test"
         }
     ],
     "compounds": [

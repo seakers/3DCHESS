@@ -7,7 +7,6 @@ from instrupy.base import Instrument
 import orbitpy.util
 import pandas as pd
 import random
-import sys
 import zmq
 import concurrent.futures
 
@@ -32,7 +31,7 @@ from nodes.science.reqs import GroundPointMeasurementRequest
 from nodes.environment import SimulationEnvironment
 from utils import *
 
-from satplan.visualizer import Visualizer
+# from satplan.visualizer import Visualizer
 
 """
 ======================================================
@@ -187,6 +186,7 @@ def agent_factory(  scenario_name : str,
     ## unpack mission specs
     agent_name = agent_dict['name']
     planner_dict = agent_dict.get('planner', None)
+    engineering_dict = agent_dict.get('engineering', None)
     science_dict = agent_dict.get('science', None)
     instruments_dict = agent_dict.get('instrument', None)
     orbit_state_dict = agent_dict.get('orbitState', None)
@@ -229,9 +229,28 @@ def agent_factory(  scenario_name : str,
     else:
         payload = []
 
+    ## load engineering module
+    if engineering_dict is not None and engineering_dict == "True":
+        bus = agent_dict.get('spacecraftBus')
+        engineering = None
+        # science = ScienceModule(results_path,
+        #                         scenario_path,
+        #                         agent_name,
+        #                         agent_network_config,
+        #                         events_path,
+        #                         logger=logger)
+    else:
+        engineering = None
+        # raise NotImplementedError(f"Science module not yet implemented.")
+
     ## load science module
     if science_dict is not None and science_dict == "True":
-        science = ScienceModule(results_path,scenario_path,agent_name,agent_network_config,events_path,logger=logger)
+        science = ScienceModule(results_path,
+                                scenario_path,
+                                agent_name,
+                                agent_network_config,
+                                events_path,
+                                logger=logger)
     else:
         science = None
         # raise NotImplementedError(f"Science module not yet implemented.")

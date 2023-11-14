@@ -103,9 +103,11 @@
             "planner": {
                 "horizon": 3600,
                 "preplanner": "FIFO",
-                "replanner": "FIFO",
+                "replanner": "ACBBA",
+                "dt_convergence": 0.0,
                 "utility": "LINEAR"
             },
+            "engineering": "True",
             "science": "True",
             "notifier": "False",
             "missionProfile": "3D-CHESS"
@@ -128,6 +130,6 @@
     },
     "settings": {
         "coverageType": "GRID COVERAGE",
-        "outDir": "./scenarios/scenario2_single_sat//orbit_data/"
+        "outDir": "./scenarios/engineering_test//orbit_data/"
     }
 }

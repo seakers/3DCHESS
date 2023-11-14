@@ -1,0 +1,136 @@
+{
+    "epoch": {
+        "@type": "GREGORIAN_UT1",
+        "year": 2020,
+        "month": 1,
+        "day": 1,
+        "hour": 0,
+        "minute": 0,
+        "second": 0
+    },
+    "duration": 1,
+    "propagator": {
+        "@type": "J2 ANALYTICAL PROPAGATOR",
+        "stepSize": 10
+    },
+    "spacecraft": [
+        {
+            "@id": "imaging_sat_0_0",
+            "name": "img_0",
+            "spacecraftBus": {
+                "name": "BlueCanyon",
+                "mass": 20,
+                "volume": 0.5,
+                "orientation": {
+                    "referenceFrame": "NADIR_POINTING",
+                    "convention": "REF_FRAME_ALIGNED"
+                },
+                "components": {
+                    "cmdh": {
+                        "power": 2,
+                        "memorySize": 100
+                    },
+                    "comms": {
+                        "transmitter": {
+                            "power": 3,
+                            "maxDataRate": 1,
+                            "bufferSize": 10,
+                            "numChannels": 1
+                        },
+                        "receiver": {
+                            "power": 3,
+                            "maxDataRate": 1,
+                            "bufferSize": 10
+                        }
+                    },
+                    "eps": {
+                        "powerGenerator": {
+                            "@type": "Solar Panel",
+                            "maxPowerGeneration": 10
+                        },
+                        "powerStorage": {
+                            "@type": "Battery",
+                            "maxPowerGeneration": 10,
+                            "energyStorageCapacity": 0.01,
+                            "depthOfDischarge": 0.99,
+                            "initialCharge": 1
+                        }
+                    }
+                }
+            },
+            "instrument": {
+                "name": "visible",
+                "mass": 10,
+                "volume": 12.45,
+                "dataRate": 40,
+                "bitsPerPixel": 8,
+                "power": 12,
+                "snr": 33,
+                "spatial_res": 50,
+                "spectral_res": 7e-09,
+                "orientation": {
+                    "referenceFrame": "SC_BODY_FIXED",
+                    "convention": "REF_FRAME_ALIGNED"
+                },
+                "fieldOfViewGeometry": {
+                    "shape": "RECTANGULAR",
+                    "angleHeight": 60,
+                    "angleWidth": 60
+                },
+                "@id": "bs1",
+                "@type": "Basic Sensor"
+            },
+            "orbitState": {
+                "date": {
+                    "@type": "GREGORIAN_UT1",
+                    "year": 2020,
+                    "month": 1,
+                    "day": 1,
+                    "hour": 0,
+                    "minute": 0,
+                    "second": 0
+                },
+                "state": {
+                    "@type": "KEPLERIAN_EARTH_CENTERED_INERTIAL",
+                    "sma": 7078,
+                    "ecc": 0.01,
+                    "inc": 67,
+                    "raan": 0.0,
+                    "aop": 0.0,
+                    "ta": 0.0
+                }
+            },
+            "planner" : {
+                "horizon" : 3600,
+                "preplanner" : "FIFO",
+                "replanner" : "ACBBA",
+                "dt_convergence" : 0.0,
+                "utility" : "LINEAR"
+            },
+            "engineering" : "True",
+            "science" : "True",
+            "notifier": "False",
+            "missionProfile": "3D-CHESS"
+        }
+    ],
+    "groundStation": [
+        
+    ],
+    "grid": [
+        {
+            "@type": "customGrid",
+            "covGridFilePath": "./scenarios/scenario2/resources/lake_event_points.csv"
+        }
+    ],
+    "scenario": {   
+                    "@type": "PREDEF", 
+                    "initialRequestsPath" : "./scenarios/scenario2_single_sat/resources/initial_requests_merged.csv",
+                    "eventsPath" : "./scenarios/scenario2_single_sat/resources/all_events_formatted.csv", 
+                    "duration": 30.0, 
+                    "connectivity" : "FULL", 
+                    "utility" : "LINEAR"
+                },
+    "settings": {
+        "coverageType": "GRID COVERAGE"
+    }
+}
