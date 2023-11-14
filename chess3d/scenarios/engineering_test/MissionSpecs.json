@@ -100,15 +100,8 @@
                     "ta": 0.0
                 }
             },
-            "planner" : {
-                "horizon" : 3600,
-                "preplanner" : "FIFO",
-                "replanner" : "ACBBA",
-                "dt_convergence" : 0.0,
-                "utility" : "LINEAR"
-            },
             "engineering" : "True",
-            "science" : "True",
+            "science" : "False",
             "notifier": "False",
             "missionProfile": "3D-CHESS"
         }

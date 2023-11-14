@@ -46,15 +46,16 @@ class EngineeringModule(object):
         Updates the current state of the engineering module.
         """
         for subsystem in self.subsystems:
-            subsystem : Subsystem
+            subsystem : AbstractSubsystem
             subsystem.update_state(t)
 
     def propagate(self, t : Union[int, float]) -> object:
         """
         Propagates and the current state of the engineering module.
         """
-        # TODO
-        pass
+        for subsystem in self.subsystems:
+            subsystem : AbstractSubsystem
+            subsystem.propagate(t)
 
     def is_critial(self) -> bool:
         """
@@ -63,7 +64,7 @@ class EngineeringModule(object):
         This is reached if any subsystem reaches a critical state
         """
         for subsystem in self.subsystems:
-            subsystem : Subsystem
+            subsystem : AbstractSubsystem
             if subsystem.is_critical():
                 return True
         
@@ -76,7 +77,7 @@ class EngineeringModule(object):
         This is reached if any subsystem reaches a failure state
         """
         for subsystem in self.subsystems:
-            subsystem : Subsystem
+            subsystem : AbstractSubsystem
             if subsystem.is_failure():
                 return True
         
@@ -90,7 +91,7 @@ class EngineeringModule(object):
         """
         t_min = np.Inf
         for subsystem in self.subsystems:
-            subsystem : Subsystem
+            subsystem : AbstractSubsystem
             t_crit = subsystem.predict_critical()
             if t_crit < t_min:
                 t_min = t_crit
@@ -105,14 +106,13 @@ class EngineeringModule(object):
         """
         t_min = np.Inf
         for subsystem in self.subsystems:
-            subsystem : Subsystem
+            subsystem : AbstractSubsystem
             t_crit = subsystem.predict_failure()
             if t_crit < t_min:
                 t_min = t_crit
         
         return t_min
 
-    @abstractmethod
     def perform_action(self, action : Union[AgentAction, SubsystemAction, ComponentAction], t : Union[int, float]) -> bool:
         """
         Performs an action on this subsystem
@@ -125,4 +125,5 @@ class EngineeringModule(object):
             - status (`str`): action completion status
             - dt (`float`): time to be waited by the agent
         """
-        pass
+        # TODO implement
+        raise NotImplementedError("`perform_action()` not yet implemented for engineering module.")

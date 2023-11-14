@@ -27,7 +27,7 @@ class SimulationAgent(Agent):
         - initial_state (:obj:`SimulationAgentState`): initial state for this agent
         - payload (`list): list of instruments on-board the spacecraft
         - planning_module (`PlanningModule`): planning module assigned to this agent
-        - science_module (`ScienceModule): science module assigned to this agent
+        - science_module (`ScienceModule`): science module assigned to this agent
         - level (int): logging level
         - logger (logging.Logger): simulation logger 
     """

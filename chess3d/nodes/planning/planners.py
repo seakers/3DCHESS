@@ -70,6 +70,7 @@ class PlanningModule(InternalModule):
                     }
 
         self.t_plan = -1.0
+        self.t_next = np.Inf
         self.agent_state : SimulationAgentState = None
         self.parent_agent_type = None
         self.orbitdata : OrbitData = None

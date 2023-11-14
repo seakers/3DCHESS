@@ -59,7 +59,7 @@ class AbstractSubsystem(ABC):
         self.components = dictionary
 
     @abstractmethod
-    def update(self, **kwargs) -> None:
+    def propagate(self, **kwargs) -> None:
         """
         Propagates and updates the current state of the subsystem.
         """
@@ -124,7 +124,7 @@ class AbstractSubsystem(ABC):
         ""
         pass
 
-class EPSubsystem(AbstractSubsystem):
+class EPSsubsystem(AbstractSubsystem):
     """
     Represents the EPS subsystem onboard an agent's Engineering Module
     """
@@ -164,11 +164,12 @@ class EPSubsystem(AbstractSubsystem):
             
         
             
-    def update(self):
+    def propagate(self):
         """
         Updates all components in the components list
         """
         for component in self.components:
+            component : AbstractComponent
             component.update()
 
     def perform_action(self, action : SubsystemAction, t : Union[int, float]) -> bool:

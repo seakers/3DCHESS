@@ -183,8 +183,9 @@ class SimulationAgentState(AbstractAgentState):
         """
         pass
 
+    @abstractmethod
     def __repr__(self) -> str:
-        return str(self.to_dict())
+        pass
 
     def __str__(self):
         return str(dict(self.__dict__))
@@ -194,7 +195,14 @@ class SimulationAgentState(AbstractAgentState):
         return SimulationAgentState.from_dict( d )
 
     def to_dict(self) -> dict:
-        return dict(self.__dict__)
+        """
+        Crates a dictionary containing all information contained in this agent state object
+        """
+        if self.engineering_module is not None:
+            # TODO 
+            pass
+        else:
+            return dict(self.__dict__)
 
     def from_dict(d : dict) -> object:
         if d['state_type'] == SimulationAgentTypes.GROUND_STATION.value:
@@ -256,6 +264,9 @@ class GroundStationAgentState(SimulationAgentState):
     def perform_maneuver(self, action: ManeuverAction, _: Union[int, float]) -> tuple:
         # agent cannot maneuver
         return action.ABORTED, 0.0
+    
+    def __repr__(self) -> str:
+        return f"GroundStationAgentState_t{self.t}"
 
 
 class SatelliteAgentState(SimulationAgentState):
@@ -571,6 +582,9 @@ class SatelliteAgentState(SimulationAgentState):
 
         # check feasibility
         return dt if self.t + dt <= final_state else None
+    
+    def __repr__(self) -> str:
+        return f"SatelliteAgentState_t{self.t}"
 
 class UAVAgentState(SimulationAgentState):
     """
@@ -672,3 +686,6 @@ class UAVAgentState(SimulationAgentState):
             # agent only fails if internal components fail
             return self.engineering_module.is_failure()
         return False
+
+    def __repr__(self) -> str:
+        return f"UAVAgentState_t{self.t}"

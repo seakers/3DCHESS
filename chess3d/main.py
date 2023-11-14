@@ -13,12 +13,10 @@ import concurrent.futures
 from dmas.messages import SimulationElementRoles
 from dmas.network import NetworkConfig
 from dmas.clocks import FixedTimesStepClockConfig, EventDrivenClockConfig
+
 from nodes.planning.consensus.acbba import ACBBAReplanner
 from nodes.planning.preplanners import *
 from nodes.planning.replanners import *
-from manager import SimulationManager
-from monitor import ResultsMonitor
-
 from nodes.states import *
 from nodes.uav import UAVAgent
 from nodes.agent import SimulationAgent
@@ -29,6 +27,11 @@ from nodes.science.science import ScienceModule
 from nodes.science.utility import utility_function
 from nodes.science.reqs import GroundPointMeasurementRequest
 from nodes.environment import SimulationEnvironment
+from nodes.engineering.engineering import EngineeringModule
+from nodes.engineering.subsystems import EPSsubsystem
+
+from manager import SimulationManager
+from monitor import ResultsMonitor
 from utils import *
 
 # from satplan.visualizer import Visualizer
@@ -232,27 +235,32 @@ def agent_factory(  scenario_name : str,
     ## load engineering module
     if engineering_dict is not None and engineering_dict == "True":
         bus = agent_dict.get('spacecraftBus')
-        engineering = None
-        # science = ScienceModule(results_path,
-        #                         scenario_path,
-        #                         agent_name,
-        #                         agent_network_config,
-        #                         events_path,
-        #                         logger=logger)
+        components = bus['components']
+        subsystems = []
+
+        if "cmdh" in components:
+            pass
+
+        if "comms" in components:
+            pass
+
+        if "eps" in components:
+            subsystems.append(EPSsubsystem())
+
+        engineering_module = EngineeringModule(subsystems)
     else:
-        engineering = None
-        # raise NotImplementedError(f"Science module not yet implemented.")
+        engineering_module = None
 
     ## load science module
     if science_dict is not None and science_dict == "True":
-        science = ScienceModule(results_path,
+        science_module = ScienceModule(results_path,
                                 scenario_path,
                                 agent_name,
                                 agent_network_config,
                                 events_path,
                                 logger=logger)
     else:
-        science = None
+        science_module = None
         # raise NotImplementedError(f"Science module not yet implemented.")
 
     ## load planner module
@@ -283,17 +291,17 @@ def agent_factory(  scenario_name : str,
         else:
             replanner = None
     else:
-        preplanner, replanner = None, None
+        preplanner, replanner, utility, planning_horizon = None, None, utility_function['NONE'], np.Inf
 
-    planner = PlanningModule(   results_path, 
-                                agent_name, 
-                                agent_network_config, 
-                                utility, 
-                                preplanner,
-                                replanner,
-                                planning_horizon,
-                                initial_reqs
-                            )    
+    planner_module = PlanningModule(results_path, 
+                                    agent_name, 
+                                    agent_network_config, 
+                                    utility, 
+                                    preplanner,
+                                    replanner,
+                                    planning_horizon,
+                                    initial_reqs
+                                )    
         
     ## create agent
     if agent_type == SimulationAgentTypes.UAV:
@@ -307,7 +315,8 @@ def agent_factory(  scenario_name : str,
 
             initial_state = UAVAgentState(  [instrument.name for instrument in payload], 
                                             pos, 
-                                            max_speed, 
+                                            max_speed,
+                                            engineering_module, 
                                             eps=eps )
 
             ## create agent
@@ -317,8 +326,8 @@ def agent_factory(  scenario_name : str,
                                 agent_network_config,
                                 initial_state,
                                 payload,
-                                planner,
-                                science,
+                                planner_module,
+                                science_module,
                                 logger=logger
                             )
 
@@ -332,6 +341,7 @@ def agent_factory(  scenario_name : str,
 
         initial_state = SatelliteAgentState(orbit_state_dict, 
                                             [instrument.name for instrument in payload], 
+                                            engineering_module=engineering_module,
                                             time_step=dt) 
         
         return SatelliteAgent(
@@ -340,9 +350,9 @@ def agent_factory(  scenario_name : str,
                                 manager_network_config,
                                 agent_network_config,
                                 initial_state, 
-                                planner,
+                                planner_module,
                                 payload,
-                                science,
+                                science_module,
                                 logger=logger
                             )
     else:
