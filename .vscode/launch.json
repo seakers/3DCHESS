@@ -160,6 +160,20 @@
                 "PYTHONPATH": "${workspaceRoot}"
             },
             "args": "engineering_test"
+        },
+
+        
+        {
+            "name": "ENGINEERING MODULE - UNITTESTER",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceRoot}/chess3d/nodes/engineering/test.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "cwd": "${workspaceRoot}/chess3d",
+            "env": {
+                "PYTHONPATH": "${workspaceRoot}"
+            }
         }
     ],
     "compounds": [

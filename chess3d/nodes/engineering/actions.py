@@ -6,12 +6,18 @@ class ComponentAction(ABC):
     
     Describes an action to be performed on or by an engineering module component
     """
-    def __init__(   self, 
-                    t : float = 0.0,
-                    ) -> None:
-        self.t = t
+    PENDING = 'PENDING'
+    ABORTED = 'ABORTED'
+    COMPLETED = 'COMPLETED'
 
-        super.__init__()
+    def __init__(   self, 
+                    t_start : float = 0.0,
+                    status : str = PENDING
+                    ) -> None:
+        self.t_start = t_start
+        self.status = status
+
+        super().__init__()
 
     pass
 
@@ -21,40 +27,96 @@ class SubsystemAction(ABC):
     
     Describes an action to be performed on or by an engineering module subsystem
     """
-    def __init__(   self, 
-                    t : float = 0.0,
-                    ) -> None:
-        self.t = t
+    PENDING = 'PENDING'
+    ABORTED = 'ABORTED'
+    COMPLETED = 'COMPLETED'
 
-        super.__init__()
+    def __init__(   self, 
+                    t_start : float = 0.0,
+                    status : str = PENDING
+                    ) -> None:
+        self.t_start = t_start
+        self.status = status
+
+        super().__init__()
     pass
 
 class SubsystemProvidePower(SubsystemAction):
     """ 
     # Subsystem Provide Power
     
-    Describes an action to be performed on or by an engineering module subsystem
+    The action made by the Engineering Module to tell the EPS Subsystem to provide power to a component
     """
     def __init__(   self,
                     receiver : str,
-                    t : float = 0.0
+                    t_start : float = 0.0,
+                    status : str = SubsystemAction.PENDING
                     ) -> None:
 
-        super.__init__(self, t)
+        super().__init__(t_start, status)
 
         self.receiver = receiver
-        self.t = t
+
+class SubsystemStopProvidePower(SubsystemAction):
+    """ 
+    # Subsystem Provide Power
+    
+    The action made by the Engineering Module to tell the EPS Subsystem to provide power to a component
+    """
+    def __init__(   self,
+                    receiver : str,
+                    t_start : float = 0.0,
+                    status : str = SubsystemAction.PENDING
+                    ) -> None:
+
+        super().__init__(t_start, status)
+
+        self.receiver = receiver
 
 class ComponentProvidePower(ComponentAction):
     """ 
     # ComponentProvide Power
     
-    Describes an action to be performed on or by an engineering module subsystem
+    The action made by the EPS Subsystem to tell a component to provide power to another component
     """
     def __init__(   self,
-                    receiver_pwr : float,
-                    t : float = 0.0
+                    receiver_power : float,
+                    t_start : float = 0.0,
+                    status : str = ComponentAction.PENDING
                     ) -> None:
-        super.__init__(self, t)
 
-        self.receiver_pwr = receiver_pwr
+        super().__init__(t_start, status)
+
+        self.receiver_power = receiver_power
+
+class ComponentStopProvidePower(ComponentAction):
+    """ 
+    # ComponentProvide Power
+    
+    The action made by the EPS Subsystem to tell a component to provide power to another component
+    """
+    def __init__(   self,
+                    receiver_power : float,
+                    t_start : float = 0.0,
+                    status : str = ComponentAction.PENDING
+                    ) -> None:
+
+        super().__init__(t_start, status)
+
+        self.receiver_power = receiver_power
+
+class ComponentChargeBattery(ComponentAction):
+    """ 
+    # ComponentChargeBattery
+    
+    The action made by the EPS Subsystem to tell a solar panel to charge a battery
+    """
+    def __init__(   self,
+                    charging_power : float,
+                    t_start : float = 0.0,
+                    status : str = ComponentAction.PENDING
+                    ) -> None:
+
+        super().__init__(t_start, status)
+
+        self.charging_power = charging_power

@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Union
 import uuid
-import numpy as np
-from nodes.engineering.actions import ComponentProvidePower, SubsystemAction, SubsystemProvidePower
-from nodes.engineering.components import AbstractComponent
+from actions import SubsystemAction, SubsystemProvidePower, SubsystemStopProvidePower, ComponentProvidePower, ComponentStopProvidePower, ComponentChargeBattery
+from components import AbstractComponent, SolarPanel, Battery
 
 
 class AbstractSubsystem(ABC):
@@ -18,11 +17,13 @@ class AbstractSubsystem(ABC):
     """
     ENABLED = 'ENABLED'
     DISABLED = 'DISABLED'
+    CRITICAL = 'CRITICAL'
     FAILED = 'FAILED'
 
     def __init__(   self, 
                     name : str,
                     components : list,
+                    dt : float,
                     status : str = DISABLED,
                     t : float = 0.0,
                     id : str = None
@@ -49,6 +50,7 @@ class AbstractSubsystem(ABC):
         # assign values
         self.name = name
         self.status = status
+        self.dt = dt
         self.t = t
         self.id = str(uuid.UUID(id)) if id is not None else str(uuid.uuid1())
 
@@ -59,7 +61,7 @@ class AbstractSubsystem(ABC):
         self.components = dictionary
 
     @abstractmethod
-    def propagate(self, **kwargs) -> None:
+    def update(self, **kwargs) -> None:
         """
         Propagates and updates the current state of the subsystem.
         """
@@ -124,22 +126,19 @@ class AbstractSubsystem(ABC):
         ""
         pass
 
-class EPSsubsystem(AbstractSubsystem):
+class EPSubsystem(AbstractSubsystem):
     """
     Represents the EPS subsystem onboard an agent's Engineering Module
     """
 
     ### Attributes:
 
-    ENABLED = 'ENABLED'
-    DISABLED = 'DISABLED'
-    FAILED = 'FAILED'
-
     def __init__(   self, 
                     components : list,
-                    connection : dict,
+                    connections : dict,
+                    dt : float,
                     name : str = "EPS",
-                    status : str = DISABLED,
+                    status : str = AbstractSubsystem.DISABLED,
                     t : float = 0.0,
                     id : str = None
                     ) -> None:
@@ -153,7 +152,9 @@ class EPSsubsystem(AbstractSubsystem):
             - t (`float` or `int`) : initial updated time  
             - id (`str`) : identifying number for this task in uuid format
         """
-        super().__init__(self, name, components, status, t, id)
+        super().__init__(name, components, dt, status, t, id)
+
+        self.connections = connections
 
         # check parameters
         if not isinstance(components, list):
@@ -164,41 +165,151 @@ class EPSsubsystem(AbstractSubsystem):
             
         
             
-    def propagate(self):
+    def update(self, t):
         """
         Updates all components in the components list
         """
-        for component in self.components:
-            component : AbstractComponent
-            component.update()
+        self.t = t
+
+        components = list(self.components.values())
+        for component in components:
+            component.update(t)
+        
+        sources = list(self.connections.keys())
+        for source in sources:
+            if isinstance(source, SolarPanel):
+                if source.is_failure():
+                    for broken_connection in self.connections[source]:
+                        if isinstance(broken_connection[0],Battery) and broken_connection[1] > 0:
+                            component_action = ComponentChargeBattery(-broken_connection[1], t)
+                            source.perform_action(component_action, t)
+                            broken_connection[0].perform_action(component_action, t)
+                            self.update_connections(source, broken_connection[0], 0)
+                        elif broken_connection[1] > 0:
+                            component_action = ComponentStopProvidePower(broken_connection[1], t)
+                            source.perform_action(component_action, t)
+                            self.update_connections(source, broken_connection[0], 0)
+
+                            subsystem_action = SubsystemProvidePower(broken_connection[0].name, t)
+                            self.perform_action(subsystem_action, t)
+
+                else:
+                    charging_power = source.power - source.load
+                    battery_count = 0
+                    for connection in self.connections[source]:
+                        if isinstance(connection[0], Battery) and connection[0].current_energy <= 0.9*connection[0].max_energy:
+                            battery_count += 1
+
+                    for connection in self.connections[source]:
+                        if isinstance(connection[0], Battery):
+                            if connection[0].current_energy <= 0.9*connection[0].max_energy:
+                                component_action = ComponentChargeBattery(charging_power/battery_count, t)
+                                source.perform_action(component_action, t)
+                                connection[0].perform_action(component_action, t)
+                                self.update_connections(source, connection[0], connection[1]+charging_power/battery_count)
+                            elif connection[0].current_energy >= 0.9*connection[0].max_energy and connection[1] > 0:
+                                component_action = ComponentChargeBattery(-connection[1], t)
+                                source.perform_action(component_action, t)
+                                connection[0].perform_action(component_action, t)
+                                self.update_connections(source, connection[0], 0)
+
+            elif isinstance(source, Battery) and source.current_energy < 0.1*source.max_energy:
+                for broken_connection in self.connections[source]:
+                    if broken_connection[1] > 0:
+                        component_action = ComponentStopProvidePower(broken_connection[1], t)
+                        source.perform_action(component_action, t)
+                        self.update_connections(source, broken_connection[0], 0)
+
+                        subsystem_action = SubsystemProvidePower(broken_connection[0].name, t)
+                        self.perform_action(subsystem_action, t)
 
     def perform_action(self, action : SubsystemAction, t : Union[int, float]) -> bool:
         self.t = t
         
         if isinstance(action, SubsystemProvidePower):
             receiver = self.components[action.receiver]
+            receiver_power = receiver.operating_power
 
-            ## Pick a source ##
+            ## Check if component is a connection of each source ##
             possible_sources = []
-
             values = list(self.connections.values())
             for i in range(len(values)):
                 components = values[i]
                 for component in components:
                     if component[0] == receiver:
-                        possible_sources.append(list(self.connections.key())[i])
-            
-            receiver_pwr = receiver.min_pwr
+                        possible_sources.append(list(self.connections.keys())[i])
 
-            min_energy = 0
-            chosen_source = None
+            ## use only solar panel source if possible and if not add all other batteries ##
+            chosen_sources = []
             for source in possible_sources:
-                if source.current_energy > min_energy:
-                    chosen_source = source
+                if isinstance(source, SolarPanel) and not source.is_failure():
+                    chosen_sources.insert(0, source)
+                    if source.power - source.load > receiver_power:
+                        chosen_sources = [source]
+                        break
+                elif isinstance(source, Battery) and source.current_energy > 0.1*source.max_energy:
+                    chosen_sources.append(source)
+            
+            ## return False if no source can be found to power the receiver ##
+            if(len(chosen_sources) == 0):
+                self.status = super().FAILED
+                return False
+            
+            solar_power = 0
+            battery_power = 0
+            for chosen_source in chosen_sources:
+                ## distribute the power between chosen sources and update connections dictionary #
+                if isinstance(chosen_source, SolarPanel):
+                    ## stop the power to charge batteries to prioritize powering component ##
+                    ## extra power will begin charging batteries in the next dt ##
+                    for broken_connection in self.connections[source]:
+                        if isinstance(broken_connection[0],Battery):
+                            component_action = ComponentChargeBattery(-broken_connection[1], t)
+                            source.perform_action(component_action, t)
+                            broken_connection[0].perform_action(component_action, t)
+                            self.update_connections(source, broken_connection[0], 0)
+                    if chosen_source.power - chosen_source.load > receiver_power:
+                        solar_power = receiver_power
+                        component_action = ComponentProvidePower(solar_power, self.t)
+                        chosen_source.perform_action(component_action, self.t)
+                        self.update_connections(chosen_source, receiver, solar_power)
+                        break
+                    else:
+                        solar_power = chosen_source.power - chosen_source.load
+                        component_action = ComponentProvidePower(solar_power, self.t)
+                        chosen_source.perform_action(component_action, self.t)
+                        self.update_connections(chosen_source, receiver, solar_power)
 
-            component_action = ComponentProvidePower(receiver_pwr, self.t)
-            chosen_source.perform_action(component_action, self.t)
+                elif isinstance(chosen_source, Battery):
+                    if solar_power == 0:
+                        battery_power = (receiver_power)/(len(chosen_sources))    
+                    else:
+                        battery_power = (receiver_power-solar_power)/(len(chosen_sources)-1)
+                    component_action = ComponentProvidePower(battery_power, self.t)
+                    chosen_source.perform_action(component_action, self.t)
 
+                    self.update_connections(chosen_source, receiver, battery_power)
+
+            self.status = super().ENABLED
+            return True
+
+        elif isinstance(action, SubsystemStopProvidePower):
+            receiver = self.components[action.receiver]
+            powering_sources = []
+
+            ## Find which sources power a component and create ComponentStopProvidePower##
+            values = list(self.connections.values())
+            for i in range(len(values)):
+                components = values[i]
+                for component in components:
+                    if component[0] == receiver and component[1] > 0:
+                        powering_source = list(self.connections.keys())[i]
+                        component_action = ComponentStopProvidePower(component[1], self.t)
+                        powering_source.perform_action(component_action, self.t)
+                        self.update_connections(powering_source, receiver, 0)
+
+            return True
+                
         elif isinstance():
             pass
 
@@ -207,9 +318,14 @@ class EPSsubsystem(AbstractSubsystem):
         Returns true if the subsystem is in a failure state
         Is defined by a source component such as a battery or solar array being in a falure state
         """
-        for component in self.components:
-            if component.is_failure():# and dict(component) == "source":
-                return True
+        count = 0
+        sources = list(self.components.keys())
+        for source in sources:
+            if (source.isinstance(SolarPanel) and source.is_failure()) or (source.isinstance(Battery) and source.is_critical()):
+                count +=1
+        if count == len(sources):
+            self.status = super().FAILED
+            return True
         return False
 
     def is_critical(self):
@@ -218,8 +334,10 @@ class EPSsubsystem(AbstractSubsystem):
 
         Is defined by a source component such as a battery or solar array being in a critical state
         """
-        for component in self.components:
-            if component.is_critical():# and dict(component) == "source":
+        sources = list(self.components.keys())
+        for source in sources:
+            if source.is_critical():
+                self.status = super().CRITICAL
                 return True
         return False
     
@@ -231,14 +349,20 @@ class EPSsubsystem(AbstractSubsystem):
 
         Returns the time where this will ocurr in simulation seconds.
         """
-        time_to_fail = np.Inf
-        for component in self.components:
-            temp = component.predict_failure()
-            if temp < time_to_fail:# and dict(component) == "source":
-                time_to_fail = temp
+        time_to_fail = 0
+        sources = list(self.components.keys())
+        for source in sources:
+            component_failure = source.predict_failure()
+            if component_failure > time_to_fail:
+                time_to_fail = component_failure
+
+            depletion = -source.current_energy/source.load
+            if depletion > time_to_fail:
+                time_to_fail = depletion
+
         return time_to_fail
 
-    def predict_critical(self):
+    def predict_critical(self) -> float:
         """
         Given the current state of the subsystem, this method predicts when a critical state will be reached.
 
@@ -246,9 +370,24 @@ class EPSsubsystem(AbstractSubsystem):
 
         Returns the time where this will ocurr in simulation seconds.
         """
-        time_to_crit = np.Inf
-        for component in self.components:
+        time_to_crit = 0
+        components = list(self.components.values())
+        for component in components:
             temp = component.predict_critical()
             if temp < time_to_crit:# and dict(component) == "source":
                 time_to_crit = temp
         return time_to_crit
+    
+
+    def decompose_instructions(self):
+        pass
+
+    def update_connections(self, source, receiver, power):
+        value = self.connections[source]
+        updated_values = []
+        for component in value:
+            if component[0] == receiver:
+                updated_values.append((component[0],power))
+            else:
+                updated_values.append(component)
+        self.connections[source] = updated_values
