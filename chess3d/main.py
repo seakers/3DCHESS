@@ -256,7 +256,11 @@ def agent_factory(  scenario_name : str,
             
             if components['eps']['powerStorage']:
                 if components['eps']['powerStorage']['@type'] == 'Battery':
-                    subsystem_components.append(SolarPanel())
+                    subsystem_components.append(Battery('powerStorage', 
+                                                         components['eps']['powerStorage']['maxPowerGeneration'],
+                                                         components['eps']['powerStorage']['energyStorageCapacity'],
+                                                         components['eps']['powerStorage']['depthOfDischarge']
+                                                        ))
                 else:
                     raise NotImplementedError(f"power storage of type `{components['eps']['powerStorage']['@type']}` not yet supported by Engineering Module.")
 

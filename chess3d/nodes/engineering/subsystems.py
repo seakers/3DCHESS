@@ -184,10 +184,14 @@ class EPSubsystem(AbstractSubsystem):
         """
         Updates all components in the components list
         """
+
+        # update time
         self.t = t
 
+        # update component states
         components = list(self.components.values())
         for component in components:
+            component : AbstractComponent
             component.update(t)
         
         sources = list(self.connections.keys())
@@ -228,7 +232,7 @@ class EPSubsystem(AbstractSubsystem):
                                 connection[0].perform_action(component_action, t)
                                 self.update_connections(source, connection[0], 0)
 
-            elif isinstance(source, Battery) and source.current_energy < 0.1*source.max_energy:
+            elif isinstance(source, Battery) and source.energy_stored < 0.1*source.energy_capacity:
                 for broken_connection in self.connections[source]:
                     if broken_connection[1] > 0:
                         component_action = ComponentStopProvidePower(broken_connection[1], t)
@@ -262,7 +266,7 @@ class EPSubsystem(AbstractSubsystem):
                     if source.power - source.load > receiver_power:
                         chosen_sources = [source]
                         break
-                elif isinstance(source, Battery) and source.current_energy > 0.1*source.max_energy:
+                elif isinstance(source, Battery) and source.energy_stored > 0.1*source.energy_capacity:
                     chosen_sources.append(source)
             
             ## return False if no source can be found to power the receiver ##

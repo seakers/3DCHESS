@@ -75,7 +75,7 @@ class SubsystemStopProvidePower(SubsystemAction):
 
 class ComponentProvidePower(ComponentAction):
     """ 
-    # ComponentProvide Power
+    # Component Provide Power
     
     The action made by the EPS Subsystem to tell a component to provide power to another component
     """
@@ -91,7 +91,7 @@ class ComponentProvidePower(ComponentAction):
 
 class ComponentStopProvidePower(ComponentAction):
     """ 
-    # ComponentProvide Power
+    # Component Stop Provide Power
     
     The action made by the EPS Subsystem to tell a component to provide power to another component
     """
@@ -107,9 +107,25 @@ class ComponentStopProvidePower(ComponentAction):
 
 class ComponentChargeBattery(ComponentAction):
     """ 
-    # ComponentChargeBattery
+    # Component Charge Battery
     
     The action made by the EPS Subsystem to tell a solar panel to charge a battery
+    """
+    def __init__(   self,
+                    charging_power : float,
+                    t_start : float = 0.0,
+                    status : str = ComponentAction.PENDING
+                    ) -> None:
+
+        super().__init__(t_start, status)
+
+        self.charging_power = charging_power
+
+class ComponentStopChargeBattery(ComponentAction):
+    """ 
+    # Component Stop Charge Battery
+    
+    The action made by the EPS Subsystem to tell a solar panel to stop charging a battery
     """
     def __init__(   self,
                     charging_power : float,
