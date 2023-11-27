@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Union
 import uuid
 
-from actions import *
+from nodes.engineering.actions import *
 
 
 class AbstractComponent(ABC):
@@ -13,10 +13,10 @@ class AbstractComponent(ABC):
 
     ### Attributes:
         - name (`str`) : name of the component
+        - operatirng_power (`float`) : power consumed by this componen when enabled in watts [W]
         - status (`str`) : current status of the component
         - t (`float` or `int`) : last updated time
         - id (`str`) : identifying number for this task in uuid format
-        - min_power (`float`) : amount of power needed to turn on component
     """
     ENABLED = 'ENABLED'
     DISABLED = 'DISABLED'
@@ -26,7 +26,6 @@ class AbstractComponent(ABC):
     def __init__(   self, 
                     name : str,
                     operating_power : float,
-                    dt : float,
                     status : str = DISABLED,
                     t : float = 0.0,
                     id : str = None
@@ -36,6 +35,7 @@ class AbstractComponent(ABC):
 
         ### Arguments:
             - name (`str`) : name of the component
+            - operatirng_power (`float`) : power consumed by this componen when enabled in watts [W]
             - status (`str`) : initial status of the component
             - t (`float` or `int`) : initial updated time  
             - id (`str`) : identifying number for this component in uuid format
@@ -44,7 +44,6 @@ class AbstractComponent(ABC):
                 
         self.name = name
         self.operating_power = operating_power
-        self.dt = dt
         self.status = status
         self.t = t
         self.id = str(uuid.UUID(id)) if id is not None else str(uuid.uuid1())
@@ -115,16 +114,14 @@ class Battery(AbstractComponent):
     Represents a battery that is part of the EPS sybstem onboard an agent's Engineering Module
 
     ### Attributes:
-        - max_energy (`float`) : maximum amount of energy a battery can hold
-        - conception_energy (`float`) : amount of maximum energy at the conception of a battery object
-        - current_energy (`float`) : amount of energy currently available in the battery
+        - energy_storage_capacity (`float`) : maximum amount of energy a battery can hold in joules [J]
+        - initial_energy_storage (`float`) : maximum energy stored at the creation of a battery in joules [J]
+        - energy_storage (`float`) : amount of energy currently available in the battery in joules [J]
         - load (`float`) : the power strain due to the components the battery is powering
     """
     def __init__(   self, 
                     name : str,
                     max_energy : float,
-                    dt : float,
-                    operating_power : float = 0,
                     status : str = AbstractComponent.DISABLED,
                     id : str = None
                     ) -> None:
@@ -137,7 +134,7 @@ class Battery(AbstractComponent):
             - t (`float` or `int`) : initial updated time  
             - id (`str`) : identifying number for this component in uuid format
         """
-        super().__init__(name, operating_power, dt)
+        super().__init__(name, 0.0)
                 
         self.conception_energy = max_energy
         self.max_energy = max_energy
@@ -165,7 +162,6 @@ class Battery(AbstractComponent):
         if (self.current_energy - 0.1*self.max_energy)/self.load > (self.current_energy - 0.9*self.max_energy)/self.load:
             return (self.current_energy - 0.1*self.max_energy)/self.load
         return (self.current_energy - 0.9*self.max_energy)/self.load
-
 
     def predict_failure(self) -> float:
         pass

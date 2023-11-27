@@ -28,7 +28,8 @@ from nodes.science.utility import utility_function
 from nodes.science.reqs import GroundPointMeasurementRequest
 from nodes.environment import SimulationEnvironment
 from nodes.engineering.engineering import EngineeringModule
-from nodes.engineering.subsystems import EPSsubsystem
+from nodes.engineering.subsystems import *
+from nodes.engineering.components import *
 
 from manager import SimulationManager
 from monitor import ResultsMonitor
@@ -245,7 +246,21 @@ def agent_factory(  scenario_name : str,
             pass
 
         if "eps" in components:
-            subsystems.append(EPSsubsystem())
+            subsystem_components = []
+            
+            if components['eps'].get('powerGenerator', None):
+                if components['eps']['powerGenerator']['@type'] == 'SolarPanel':
+                    subsystem_components.append(SolarPanel())
+                else:
+                    raise NotImplementedError(f"power generator of type `{components['eps']['powerGenerator']['@type']}` not yet supported by Engineering Module.")
+            
+            if components['eps']['powerStorage']:
+                if components['eps']['powerStorage']['@type'] == 'Battery':
+                    subsystem_components.append(SolarPanel())
+                else:
+                    raise NotImplementedError(f"power storage of type `{components['eps']['powerStorage']['@type']}` not yet supported by Engineering Module.")
+
+            subsystems.append(EPSubsystem(subsystem_components, payload))
 
         engineering_module = EngineeringModule(subsystems)
     else:

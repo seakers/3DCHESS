@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Union
 import uuid
-from actions import SubsystemAction, SubsystemProvidePower, SubsystemStopProvidePower, ComponentProvidePower, ComponentStopProvidePower, ComponentChargeBattery
-from components import AbstractComponent, SolarPanel, Battery
+from nodes.engineering.actions import SubsystemAction, SubsystemProvidePower, SubsystemStopProvidePower, ComponentProvidePower, ComponentStopProvidePower, ComponentChargeBattery
+from nodes.engineering.components import AbstractComponent, SolarPanel, Battery
 
 
 class AbstractSubsystem(ABC):
@@ -23,7 +23,6 @@ class AbstractSubsystem(ABC):
     def __init__(   self, 
                     name : str,
                     components : list,
-                    dt : float,
                     status : str = DISABLED,
                     t : float = 0.0,
                     id : str = None
@@ -50,13 +49,13 @@ class AbstractSubsystem(ABC):
         # assign values
         self.name = name
         self.status = status
-        self.dt = dt
         self.t = t
         self.id = str(uuid.UUID(id)) if id is not None else str(uuid.uuid1())
 
         # converts the list of component objects into a dictionary with component names as the keys and component objects as values
         dictionary = {}
         for component in components:
+            component : AbstractComponent
             dictionary[component.name] = component
         self.components = dictionary
 
@@ -130,29 +129,25 @@ class EPSubsystem(AbstractSubsystem):
     """
     Represents the EPS subsystem onboard an agent's Engineering Module
     """
-
-    ### Attributes:
-
     def __init__(   self, 
                     components : list,
-                    connections : dict,
-                    dt : float,
-                    name : str = "EPS",
-                    status : str = AbstractSubsystem.DISABLED,
+                    payload : list,
+                    status : str = AbstractSubsystem.ENABLED,
                     t : float = 0.0,
+                    connections : dict = None,
                     id : str = None
                     ) -> None:
         """
         Initiates an instance of the EPS Subsystem 
 
         ### Arguments:
-            - name (`str`) : name of the subsystem
             - components (`list`): list of components comprising this subsystem
             - status (`str`) : initial status of the subsystem
-            - t (`float` or `int`) : initial updated time  
+            - t (`float` or `int`) : initial simulation time  
+            - connections (`dict`): maps out the possible components to provide and (or) be provided power
             - id (`str`) : identifying number for this task in uuid format
         """
-        super().__init__(name, components, dt, status, t, id)
+        super().__init__("EPS", components, status, t, id)
 
         self.connections = connections
 
@@ -162,7 +157,27 @@ class EPSubsystem(AbstractSubsystem):
         for component in components:
             if not isinstance(component, AbstractComponent):
                 raise ValueError(f'elements of list `components` must be of type `Component`. contains element of type {type(component)}.')
+            elif not isinstance(component, Battery) and not isinstance(component, SolarPanel): 
+                raise NotImplementedError(f'component of type {type(component)} not yet supported by EPS subsystem.')
+        
+        # construct connections
+        if not connections:
+            batteries = [component for component in components if isinstance(component, Battery)]
+            solarpanels = [component for component in components if isinstance(component, SolarPanel)]
+
+            self.connections = {}
+            for battery in batteries:
+                self.connections[battery] = [(instrument, 0) for instrument in payload]
             
+            for solarpanel in solarpanels:
+                connection = []
+                for instrument in payload:
+                    connection.append( (instrument, 0) )
+
+                for battery in batteries:
+                    connection.append( (battery, 0) )
+
+                connections[solarpanel] = connection
         
             
     def update(self, t):

@@ -45,7 +45,7 @@
                     },
                     "eps": {
                         "powerGenerator": {
-                            "@type": "Solar Panel",
+                            "@type": "SolarPanel",
                             "maxPowerGeneration": 10
                         },
                         "powerStorage": {
