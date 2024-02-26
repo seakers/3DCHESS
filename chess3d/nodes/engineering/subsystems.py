@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Union
 import uuid
-from nodes.engineering.actions import SubsystemAction, SubsystemProvidePower, SubsystemStopProvidePower, ComponentProvidePower, ComponentStopProvidePower, ComponentChargeBattery
+from nodes.engineering.actions import SubsystemAction, SubsystemProvidePower, SubsystemStopProvidePower, ComponentProvidePower, ComponentStopProvidePower, ComponentChargeBattery, RetrieveAtt
 from nodes.engineering.components import AbstractComponent, SolarPanel, Battery
 
 
@@ -450,15 +450,15 @@ class ACDS(AbstractSubsystem):
     def __init__(self, 
                  name: str, 
                  components: list,
-                 I_craft = list,
-                 Orb_elem = list,
-                 att= list,
-                 ang_w = list,
-                 mass = float,
-                 I_spin = float,
-                 I_transverse = float,
-                 Allow_err = float,
-                 T_disturb = float, 
+                 I_craft : list,
+                 Orb_elem : list,
+                 att : list,
+                 ang_w : list,
+                 mass : float,
+                 I_spin : float,
+                 I_transverse : float,
+                 Allow_err : float,
+                 T_disturb : float, 
                  status: str = DISABLED, 
                  t: float = 0, 
                  id: str = None
@@ -492,109 +492,36 @@ class ACDS(AbstractSubsystem):
         self.t = t
 
     def update_state(self,
-                     dt = float,
+                     t = float,
                      **kwargs) -> None:
         
-        # Update time
-        tf = self.t + dt
+        # Set time
+        tf = t
+        dt = tf - self.t
         self.dt = dt
-        # Update attitude
-        # Create simulation variable names
-        simTaskName = "simTask"
-        simProcessName = "simProcess"
 
-        #  Create a sim module as an empty container
-        scSim = SimulationBaseClass.SimBaseClass()
+        # Attitude update
+        initial_att = self.att
+        subsystem_action = RetrieveAtt(initial_att,dt)
+        self.perform_action(subsystem_action,tf)
 
-        # *******************set the simulation time ********************
-        simulationTime = macros.sec2nano(self.dt) 
-
-        # create the simulation process
-        dynProcess = scSim.CreateNewProcess(simProcessName)
-        # create the dynamics task and specify the integration update time
-        simulationTimeStep = macros.sec2nano(0.1)
-        dynProcess.addTask(scSim.CreateNewTask(simTaskName, simulationTimeStep))
-
-        # Setup the simulation tasks/objects
-
-        # **********initialize spacecraft object and set properties**************
-        scObject = spacecraft.Spacecraft()
-        scObject.ModelTag = "bsk-Sat"
-        # define the simulation inertia
-        I = self.I_craft
-        scObject.hub.mHub = self.mass# kg - spacecraft mass , self.mass
-        scObject.hub.r_BcB_B = [[0.0], [0.0], [0.0]]  # m - position vector of body-fixed point B relative to CM, 
-        scObject.hub.IHubPntBc_B = unitTestSupport.np2EigenMatrix3d(I)
-
-        # add spacecraft object to the simulation process
-        scSim.AddModelToTask(simTaskName, scObject)
-
-        # clear prior gravitational body and SPICE setup definitions
-        gravFactory = simIncludeGravBody.gravBodyFactory()
-
-        # setup Earth Gravity Body
-        earth = gravFactory.createEarth()
-        earth.isCentralBody = True  # ensure this is the central gravitational body
-        mu = earth.mu
-
-        # attach gravity model to spacecraft
-        scObject.gravField.gravBodies = spacecraft.GravBodyVector(list(gravFactory.gravBodies.values()))
-
-        #
-        #   initialize Spacecraft States with initialization variables
-        #
-        # **************setup the orbit using classical orbit elements**************
-        oe = orbitalMotion.ClassicElements()
-        # retrieve orbital elements from list [a,e,i,omega1,omega2,f]
-        oe.a = self.Orb_elem[0]  # meters
-        oe.e = self.Orb_elem[1]
-        oe.i = self.Orb_elem[2] * macros.D2R
-        oe.Omega = self.Orb_elem[3] * macros.D2R
-        oe.omega = self.Orb_elem[4] * macros.D2R
-        oe.f = self.Orb_elem[5] * macros.D2R
-        rN, vN = orbitalMotion.elem2rv(mu, oe)
-        scObject.hub.r_CN_NInit = rN  # m   - r_CN_N
-        scObject.hub.v_CN_NInit = vN  # m/s - v_CN_N
-        scObject.hub.sigma_BNInit = self.att
-        scObject.hub.omega_BN_BInit = self.ang_w
+        # Time update
+        self.t = tf
 
         
+    def perform_action(self, action : SubsystemAction, t : Union[int, float]) -> bool:
+        """
+        Performs an action on this subsystem
 
+        ### Arguments:
+            - action (:obj:`SubsystemAction`) : action to be performed
+            - t (`float` or `int`) : current simulation time in [s]
 
-        # add the simple Navigation sensor module.  This sets the SC attitude, rate, position
-        # velocity navigation message
-        sNavObject = simpleNav.SimpleNav()
-        sNavObject.ModelTag = "SimpleNavigation"
-        scSim.AddModelToTask(simTaskName, sNavObject)
-        sNavObject.scStateInMsg.subscribeTo(scObject.scStateOutMsg)
+        ### Returns:
+            - boolean value indicating if performing the action was successful or not
+        """
+        self.t = t
 
-
-        # Setup data logging before the simulation is initialized
-        numDataPoints = 1
-        samplingTime = unitTestSupport.samplingTime(simulationTime, simulationTimeStep, numDataPoints)
-        snAttLog = sNavObject.attOutMsg.recorder(samplingTime)
-        snTransLog = sNavObject.transOutMsg.recorder(samplingTime)
-        scSim.AddModelToTask(simTaskName, snAttLog)
-        scSim.AddModelToTask(simTaskName, snTransLog)
-
-    
-        # create simulation messages
-
-        # if this scenario is to interface with the BSK Viz, uncomment the following lines
-        viz = vizSupport.enableUnityVisualization(scSim, simTaskName, scObject
-                                                # , saveFile=fileName
-                                                )
-
-        # Initialize Simulation
-        scSim.InitializeSimulation()
-
-        # Configure a simulation stop time and execute the simulation run
-        scSim.ConfigureStopTime(simulationTime)
-        scSim.ExecuteSimulation()
-
-        #
-        #   retrieve the logged data
-        #
-        dataSigmaBN = snAttLog.sigma_BN
-        self.att = dataSigmaBN
+        if isinstance(action,RetrieveAtt):
+            initial_att = self.att
     pass
