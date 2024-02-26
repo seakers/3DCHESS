@@ -5,6 +5,28 @@ from nodes.engineering.actions import SubsystemAction, SubsystemProvidePower, Su
 from nodes.engineering.components import AbstractComponent, SolarPanel, Battery
 
 
+# Basilisk imports
+import os
+
+import matplotlib.pyplot as plt
+import numpy as np
+# The path to the location of Basilisk
+# Used to get the location of supporting data.
+from Basilisk import __path__
+# import FSW Algorithm related support
+from Basilisk.simulation import simpleNav
+# import simulation related support
+from Basilisk.simulation import spacecraft
+from Basilisk.utilities import RigidBodyKinematics
+# import general simulation support files
+from Basilisk.utilities import SimulationBaseClass
+from Basilisk.utilities import macros
+from Basilisk.utilities import orbitalMotion
+from Basilisk.utilities import simIncludeGravBody
+from Basilisk.utilities import unitTestSupport  # general support file with common unit test functions
+# attempt to import vizard
+from Basilisk.utilities import vizSupport
+
 class AbstractSubsystem(ABC):
     """
     Represents a subsystem onboard an agent's Engineering Module
@@ -410,3 +432,169 @@ class EPSubsystem(AbstractSubsystem):
             else:
                 updated_values.append(component)
         self.connections[source] = updated_values
+
+
+class ACDS(AbstractSubsystem):
+    """
+    Attitude Control and Determination Subsystem of Agent's Engineeering Module
+    
+    ### Attributes:
+        - name (`str`) : name of the subsystem
+        - status (`str`) : current status of the subsystem
+        - t (`float` or `int`) : last updated time
+        - id (`str`) : identifying number for this subsystem in uuid format
+    """
+    ENABLED = 'ENABLED'
+    DISABLED = 'DISABLED'
+    FAILED = 'FAILED'
+    def __init__(self, 
+                 name: str, 
+                 components: list,
+                 I_craft = list,
+                 Orb_elem = list,
+                 att= list,
+                 ang_w = list,
+                 mass = float,
+                 I_spin = float,
+                 I_transverse = float,
+                 Allow_err = float,
+                 T_disturb = float, 
+                 status: str = DISABLED, 
+                 t: float = 0, 
+                 id: str = None
+                 )-> None:
+        super().__init__(name, components, status, t, id)
+
+        # check parameters
+        if not isinstance(components, list):
+            raise ValueError(f'`components` must be of type `list`. is of type {type(components)}.')
+        for component in components:
+            if not isinstance(component, Component):
+                raise ValueError(f'elements of list `components` must be of type `Component`. contains element of type {type(component)}.')
+        
+        # assign values
+        self.name = 'ADCS'
+        self.components = components
+        self.I_craft = I_craft
+        self.Orb_elem = Orb_elem
+        self.att = att
+        self.ang_w = ang_w
+        self.mass = mass
+        self.I_spin = I_spin
+        self.I_transverse = I_transverse
+        self.Allow_err = Allow_err
+        self.T_disturb = T_disturb
+        self.status = status
+
+        self.name = name
+        self.status = status
+        self.components = components
+        self.t = t
+
+    def update_state(self,
+                     dt = float,
+                     **kwargs) -> None:
+        
+        # Update time
+        tf = self.t + dt
+        self.dt = dt
+        # Update attitude
+        # Create simulation variable names
+        simTaskName = "simTask"
+        simProcessName = "simProcess"
+
+        #  Create a sim module as an empty container
+        scSim = SimulationBaseClass.SimBaseClass()
+
+        # *******************set the simulation time ********************
+        simulationTime = macros.sec2nano(self.dt) 
+
+        # create the simulation process
+        dynProcess = scSim.CreateNewProcess(simProcessName)
+        # create the dynamics task and specify the integration update time
+        simulationTimeStep = macros.sec2nano(0.1)
+        dynProcess.addTask(scSim.CreateNewTask(simTaskName, simulationTimeStep))
+
+        # Setup the simulation tasks/objects
+
+        # **********initialize spacecraft object and set properties**************
+        scObject = spacecraft.Spacecraft()
+        scObject.ModelTag = "bsk-Sat"
+        # define the simulation inertia
+        I = self.I_craft
+        scObject.hub.mHub = self.mass# kg - spacecraft mass , self.mass
+        scObject.hub.r_BcB_B = [[0.0], [0.0], [0.0]]  # m - position vector of body-fixed point B relative to CM, 
+        scObject.hub.IHubPntBc_B = unitTestSupport.np2EigenMatrix3d(I)
+
+        # add spacecraft object to the simulation process
+        scSim.AddModelToTask(simTaskName, scObject)
+
+        # clear prior gravitational body and SPICE setup definitions
+        gravFactory = simIncludeGravBody.gravBodyFactory()
+
+        # setup Earth Gravity Body
+        earth = gravFactory.createEarth()
+        earth.isCentralBody = True  # ensure this is the central gravitational body
+        mu = earth.mu
+
+        # attach gravity model to spacecraft
+        scObject.gravField.gravBodies = spacecraft.GravBodyVector(list(gravFactory.gravBodies.values()))
+
+        #
+        #   initialize Spacecraft States with initialization variables
+        #
+        # **************setup the orbit using classical orbit elements**************
+        oe = orbitalMotion.ClassicElements()
+        # retrieve orbital elements from list [a,e,i,omega1,omega2,f]
+        oe.a = self.Orb_elem[0]  # meters
+        oe.e = self.Orb_elem[1]
+        oe.i = self.Orb_elem[2] * macros.D2R
+        oe.Omega = self.Orb_elem[3] * macros.D2R
+        oe.omega = self.Orb_elem[4] * macros.D2R
+        oe.f = self.Orb_elem[5] * macros.D2R
+        rN, vN = orbitalMotion.elem2rv(mu, oe)
+        scObject.hub.r_CN_NInit = rN  # m   - r_CN_N
+        scObject.hub.v_CN_NInit = vN  # m/s - v_CN_N
+        scObject.hub.sigma_BNInit = self.att
+        scObject.hub.omega_BN_BInit = self.ang_w
+
+        
+
+
+        # add the simple Navigation sensor module.  This sets the SC attitude, rate, position
+        # velocity navigation message
+        sNavObject = simpleNav.SimpleNav()
+        sNavObject.ModelTag = "SimpleNavigation"
+        scSim.AddModelToTask(simTaskName, sNavObject)
+        sNavObject.scStateInMsg.subscribeTo(scObject.scStateOutMsg)
+
+
+        # Setup data logging before the simulation is initialized
+        numDataPoints = 1
+        samplingTime = unitTestSupport.samplingTime(simulationTime, simulationTimeStep, numDataPoints)
+        snAttLog = sNavObject.attOutMsg.recorder(samplingTime)
+        snTransLog = sNavObject.transOutMsg.recorder(samplingTime)
+        scSim.AddModelToTask(simTaskName, snAttLog)
+        scSim.AddModelToTask(simTaskName, snTransLog)
+
+    
+        # create simulation messages
+
+        # if this scenario is to interface with the BSK Viz, uncomment the following lines
+        viz = vizSupport.enableUnityVisualization(scSim, simTaskName, scObject
+                                                # , saveFile=fileName
+                                                )
+
+        # Initialize Simulation
+        scSim.InitializeSimulation()
+
+        # Configure a simulation stop time and execute the simulation run
+        scSim.ConfigureStopTime(simulationTime)
+        scSim.ExecuteSimulation()
+
+        #
+        #   retrieve the logged data
+        #
+        dataSigmaBN = snAttLog.sigma_BN
+        self.att = dataSigmaBN
+    pass
